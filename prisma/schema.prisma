@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id        Int    @id @default(autoincrement())
+  name      String
+  email     String @unique
+  keycloakId  String   @unique
+
+  loanId    Int? 
+  loan      Loan?  @relation(fields: [loanId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Loan {
+  id               Int           @id @default(autoincrement())
+  amount           Float         // deposit + interest
+  deposit          Float         // Principal
+  interest         Float         // Interest amount (calculated or input)
+  instalmentCount  Int           // Number of instalments
+  status           LoanStatus    @default(PENDING)
+
+  users            User[]        // One-to-many: one loan to many users
+  instalments      Instalment[]
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Instalment {
+  id        Int      @id @default(autoincrement())
+  loanId    Int
+  loan      Loan     @relation(fields: [loanId], references: [id])
+  dueDate   DateTime
+  amount    Float
+  paid      Boolean  @default(false)
+  paidAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
