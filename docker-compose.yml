@@ -10,7 +10,7 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
-      - "8080:8080"
+      - "8083:8080"
     depends_on:
       - postgres
 
@@ -24,7 +24,7 @@ services:
       POSTGRES_PASSWORD: loan_pass
       POSTGRES_DB: loan_db
     ports:
-      - "5432:5432"
+      - "5431:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
