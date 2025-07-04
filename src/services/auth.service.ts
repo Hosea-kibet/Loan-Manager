@@ -25,7 +25,7 @@ export const registerUser = async ({ fullName, email, password, roles = [],token
     data: {
       name: fullName,
       email,
-      keycloakId: keycloakUser.id!,
+      userId: keycloakUser.id!,
     },
   });
 

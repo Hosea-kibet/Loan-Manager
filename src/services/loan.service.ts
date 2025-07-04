@@ -1,72 +1,62 @@
-import prisma from '../config/prisma';
+import { InstalmentStatus, LoanStatus } from "@prisma/client";
+import prisma from "../config/prisma";
 
-interface CreateLoanInput {
-  deposit: number;
-  instalment: number;
-  interest: number;
+interface Loan {
+
 }
 
-export const createLoan = async ({ deposit, instalment, interest }: CreateLoanInput) => {
-  const interestAmount = deposit * (interest / 100);
-  const totalPayable = deposit + interestAmount;
-  const monthlyInstalment = parseFloat((totalPayable / instalment).toFixed(2));
+export const applyForLoan = async ({
+  userId,
+  typeId,
+  amount,
+}: {
+  userId: number;
+  typeId: number;
+  amount: number;
+}) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('User not found');
+
+  const loanType = await prisma.loanType.findUnique({ where: { id: typeId } });
+  if (!loanType) throw new Error('Loan type not found');
+
+  if (amount < loanType.minAmount || amount > loanType.maxAmount) {
+    throw new Error(`Amount must be between ${loanType.minAmount} and ${loanType.maxAmount}`);
+  }
+
+  const interestAmount = amount * (loanType.interestRate / 100);
+  const total = amount + interestAmount;
+  const monthlyPayment = total / loanType.termMonths;
 
   const loan = await prisma.loan.create({
     data: {
-      deposit,
-      interest,
-      amount: totalPayable,
-      instalmentCount: instalment,
-      status: 'PENDING',
+      userId,
+      typeId,
+      amount,
+      interest: loanType.interestRate,
+      instalmentCount: loanType.termMonths,
+      status: LoanStatus.PENDING,
     },
   });
 
-  const instalments = Array.from({ length: instalment }).map((_, i) => ({
+  const instalments = Array.from({ length: loanType.termMonths }).map((_, index) => ({
     loanId: loan.id,
-    amount: monthlyInstalment,
-    dueDate: new Date(new Date().setMonth(new Date().getMonth() + i + 1)),
+    amount: monthlyPayment,
+    dueDate: new Date(new Date().setMonth(new Date().getMonth() + index + 1)),
+    status: InstalmentStatus.PENDING,
   }));
 
   await prisma.instalment.createMany({ data: instalments });
-  return loan;
-};
 
-export const approveLoan = async (loanId: number) => {
-  return prisma.loan.update({
-    where: { id: loanId },
-    data: { status: 'APPROVED' },
-  });
-};
-
-export const assignUserToLoan = async ({ userId, loanId }: { userId: number; loanId: number }) => {
-  const loan = await prisma.loan.findUnique({ where: { id: loanId } });
-  if (!loan) throw new Error('Loan not found');
-  if (loan.status !== 'APPROVED') throw new Error('Loan must be approved before assigning to users');
-
-  const userWithLoan = await prisma.user.findUnique({ where: { id: userId } });
-  if (userWithLoan?.loanId) throw new Error('User already has a loan');
-
-  return prisma.user.update({
-    where: { id: userId },
-    data: { loanId },
-  });
-};
-
-export const getLoanForUser = async (userId: number) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      loan: {
-        include: { instalments: true },
-      },
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: 'APPLY_LOAN',
+      entity: 'Loan',
+      entityId: loan.id,
+      details: `User ${userId} applied for loan ${loan.id}`,
     },
   });
-  return user?.loan || null;
-};
 
-export const getLoanById = async (loanId: number) => {
-  return prisma.loan.findUnique({
-    where: { id: loanId },
-    include: { users: true, instalments: true },
-  });
+  return loan;
 };

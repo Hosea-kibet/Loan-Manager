@@ -11,34 +11,66 @@ enum LoanStatus {
   PENDING
   APPROVED
   REJECTED
+  ACTIVE
+  COMPLETED
+  OVERDUE
+  WRITTEN_OFF
 }
 
+enum InstalmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  RESCHEDULED
+}
+
+
+
 model User {
-  id        Int    @id @default(autoincrement())
-  name      String
-  email     String @unique
-  keycloakId  String   @unique
-
-  loanId    Int? 
-  loan      Loan?  @relation(fields: [loanId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  userId String   @unique
+  loans      Loan[]
+  documents  Document[]
+  auditLogs  AuditLog[]
+  transactions Transaction[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Loan {
-  id               Int           @id @default(autoincrement())
-  amount           Float         // deposit + interest
-  deposit          Float         // Principal
-  interest         Float         // Interest amount (calculated or input)
-  instalmentCount  Int           // Number of instalments
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user   User? @relation(fields: [userId], references: [id])
+  typeId           Int
+  type   LoanType @relation(fields: [typeId], references: [id])
+  amount           Float
+  deposit          Float?
+  interest         Float
+  instalmentCount  Int
   status           LoanStatus    @default(PENDING)
-
-  users            User[]        // One-to-many: one loan to many users
   instalments      Instalment[]
+  collaterals      Collateral[]
+  guarantors       Guarantor[]
+  documents        Document[]
+  reschedules      Reschedule[]
+  transactions     Transaction[]
+  approvedBy       String?
+  approvedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
 
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+model LoanType {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  minAmount   Float
+  maxAmount   Float
+  interestRate Float
+  termMonths  Int
+  loans       Loan[]
 }
 
 model Instalment {
@@ -47,9 +79,90 @@ model Instalment {
   loan      Loan     @relation(fields: [loanId], references: [id])
   dueDate   DateTime
   amount    Float
-  paid      Boolean  @default(false)
+  status InstalmentStatus @default(PENDING)
   paidAt    DateTime?
+  transactions Transaction[]
+  reschedules Reschedule[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Transaction {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  loanId        Int
+  loan          Loan     @relation(fields: [loanId], references: [id])
+  instalmentId  Int?
+  instalment    Instalment? @relation(fields: [instalmentId], references: [id])
+  amount        Float
+  type          String   // e.g. "PAYMENT", "DISBURSEMENT", "FEE"
+  method        String   // e.g. "CASH", "BANK", "MOBILE"
+  reference     String?
+  status        String   // e.g. "SUCCESS", "FAILED", "PENDING"
+  transactionAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Collateral {
+  id          Int      @id @default(autoincrement())
+  loanId      Int
+  loan        Loan     @relation(fields: [loanId], references: [id])
+  type        String
+  value       Float
+  description String?
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Guarantor {
+  id          Int      @id @default(autoincrement())
+  loanId      Int
+  loan        Loan     @relation(fields: [loanId], references: [id])
+  name        String
+  contact     String
+  relationship String
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Document {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  loanId      Int?
+  loan        Loan?    @relation(fields: [loanId], references: [id])
+  type        String
+  url         String
+  status      String
+  uploadedAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  Int
+  details   String?
+  timestamp DateTime @default(now())
+}
+
+model Reschedule {
+  id            Int      @id @default(autoincrement())
+  loanId        Int
+  loan          Loan     @relation(fields: [loanId], references: [id])
+  instalmentId  Int?
+  instalment    Instalment? @relation(fields: [instalmentId], references: [id])
+  oldDueDate    DateTime
+  newDueDate    DateTime
+  reason        String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
