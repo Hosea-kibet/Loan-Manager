@@ -40,5 +40,19 @@ services:
     depends_on:
       - postgres
 
+  # LocalStack (AWS Services Local Emulator)
+  localstack:
+    image: localstack/localstack:3
+    container_name: localstack
+    ports:
+      - "4566:4566"              # Main LocalStack endpoint
+      - "4510-4559:4510-4559"    # Internal service ports
+    environment:
+      - SERVICES=s3              # You can add more services if needed (e.g., s3,dynamodb,sqs)
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+
 volumes:
   pgdata:
+  localstack_data:

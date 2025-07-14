@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import loanRoutes from './routes/loan.route'
 import loanTypeRoutes from './routes/loanType.route';
+import loanExtrasRoutes from "./routes/loan.extras.route"
 
 
 dotenv.config();
@@ -30,6 +31,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/loans', loanRoutes);
 app.use('/api/v1/loan-types',loanTypeRoutes);
+app.use('/api/v1/loan-extras', loanExtrasRoutes);
 
 // 404
 app.use((_req, res) => {
