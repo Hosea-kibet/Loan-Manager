@@ -1,19 +1,41 @@
 import KeycloakAdminClient from '@keycloak/keycloak-admin-client';
+import { createError } from './app-error';
 
 const kcAdminClient = new KeycloakAdminClient({
   baseUrl: process.env.KEYCLOAK_BASE_URL || 'http://localhost:8080',
-  realmName: process.env.KEYCLOAK_REALM || 'myrealm',
+  realmName: process.env.KEYCLOAK_REALM || 'admin',
 });
 
 
-export async function initializeKeycloakAdmin(token: string) {
-  kcAdminClient.setAccessToken(token);
+export async function initializeKeycloakAdmin() {
+  const baseUrl = process.env.KEYCLOAK_BASE_URL || 'http://localhost:8080';
+  const realmName = process.env.KEYCLOAK_REALM || 'master';
+
+  const kcAdminClient = new KeycloakAdminClient({ baseUrl, realmName });
+
+
+  console.log('[Keycloak] Authenticating via client credentials...');
+  try {
+    await kcAdminClient.auth({
+      grantType: 'client_credentials',
+      clientId: process.env.KEYCLOAK_CLIENT_ID!,
+      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
+    });
+  } catch (err: any) {
+    const message =
+      err?.responseData?.error_description || err?.responseData?.error || 'Keycloak auth failed';
+    const status = err?.response?.status || 500;
+    throw createError(message, status);
+  }
+
+
+
+  console.log('[Keycloak] Authenticated successfully.');
+
   return kcAdminClient;
 }
 
-/**
- * Create a new Keycloak user and assign optional roles
- */
+
 export async function createUserWithRoles({
   kc,
   username,
@@ -27,20 +49,29 @@ export async function createUserWithRoles({
   password: string;
   roles?: string[];
 }) {
-  const user = await kc.users.create({
-    realm: kc.realmName!,
-    username,
-    email,
-    enabled: true,
-    emailVerified: true,
-    credentials: [
-      {
-        type: 'password',
-        value: password,
-        temporary: false,
-      },
-    ],
-  });
+  let user;
+
+  try {
+    user = await kc.users.create({
+      realm: kc.realmName!,
+      username,
+      email,
+      enabled: true,
+      emailVerified: true,
+      credentials: [
+        {
+          type: 'password',
+          value: password,
+          temporary: false,
+        },
+      ],
+    });
+  } catch (err: any) {
+    const kcErrorMessage = err?.responseData?.errorMessage || 'Keycloak error';
+    const kcStatusCode = err?.response?.status || 500;
+
+    throw createError(kcErrorMessage, kcStatusCode);
+  }
 
   if (roles.length > 0) {
     const availableRoles = await kc.roles.find({ realm: kc.realmName! });
@@ -62,9 +93,7 @@ export async function createUserWithRoles({
 }
 
 
-/**
- * Update a Keycloak user
- */
+
 export async function updateUser(
   kc: KeycloakAdminClient,
   userId: string,
@@ -77,9 +106,7 @@ export async function updateUser(
   );
 }
 
-/**
- * Delete a Keycloak user
- */
+
 export async function deleteUser(kc: KeycloakAdminClient, userId: string) {
 
   await kc.users.del({
@@ -88,9 +115,7 @@ export async function deleteUser(kc: KeycloakAdminClient, userId: string) {
   });
 }
 
-/**
- * Fetch all realm roles (to sync to DB or cache)
- */
+
 export async function fetchKeycloakRoles(kc: KeycloakAdminClient): Promise<string[]> {
 
   const roles = await kc.roles.find({

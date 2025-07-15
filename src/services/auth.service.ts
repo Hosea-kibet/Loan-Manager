@@ -6,12 +6,11 @@ interface RegisterInput {
   email: string;
   password: string;
   roles?: string[];
-  token: string;
 }
 
 
-export const registerUser = async ({ fullName, email, password, roles = [],token }: RegisterInput) => {
-  const kc = await initializeKeycloakAdmin(token);
+export const registerUser = async ({ fullName, email, password, roles = [] }: RegisterInput) => {
+  const kc = await initializeKeycloakAdmin(); // No token needed
 
   const keycloakUser = await createUserWithRoles({
     kc,

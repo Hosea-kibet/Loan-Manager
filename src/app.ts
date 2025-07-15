@@ -1,5 +1,5 @@
 // src/app.ts
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -9,7 +9,7 @@ import userRoutes from './routes/user.routes';
 import loanRoutes from './routes/loan.route'
 import loanTypeRoutes from './routes/loanType.route';
 import loanExtrasRoutes from "./routes/loan.extras.route"
-
+import { errorHandler } from './middleware/error-handler';
 
 dotenv.config();
 
@@ -21,7 +21,8 @@ app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Health check
+
+
 app.get('/api/v1/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
 });
@@ -33,15 +34,15 @@ app.use('/api/v1/loans', loanRoutes);
 app.use('/api/v1/loan-types',loanTypeRoutes);
 app.use('/api/v1/loan-extras', loanExtrasRoutes);
 
+
+app.use(errorHandler); 
+
+
 // 404
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-// Error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong' });
-});
+
 
 export default app;

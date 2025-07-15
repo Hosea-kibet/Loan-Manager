@@ -1,9 +1,6 @@
 import { InstalmentStatus, LoanStatus } from "@prisma/client";
 import prisma from "../config/prisma";
 
-interface Loan {
-
-}
 
 export const applyForLoan = async ({
   userId,
@@ -19,6 +16,17 @@ export const applyForLoan = async ({
 
   const loanType = await prisma.loanType.findUnique({ where: { id: typeId } });
   if (!loanType) throw new Error('Loan type not found');
+
+  const existingLoan = await prisma.loan.findFirst({
+    where:{
+      userId,
+      typeId
+    }
+  })
+
+  if(existingLoan) {
+    throw new Error('You already have a loan of this type');
+  }
 
   if (amount < loanType.minAmount || amount > loanType.maxAmount) {
     throw new Error(`Amount must be between ${loanType.minAmount} and ${loanType.maxAmount}`);

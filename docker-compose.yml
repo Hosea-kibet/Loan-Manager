@@ -1,7 +1,41 @@
 version: '3.8'
 
 services:
-  # Keycloak server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: loan_app
+    command: >
+       sh -c "npx prisma migrate deploy && npm run dev"
+         
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://loan_user:loan_pass@postgres:5432/loan_db
+      JWT_SECRET: superstrongsecretkey
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: master
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_CLIENT_ID: loan
+      KEYCLOAK_CLIENT_SECRET: uemMU2yVfoFqil6zDkiiHlMirIIEahbp
+
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_S3_BUCKET: my-test-bucket
+      AWS_S3_ENDPOINT: http://localstack:4566
+    depends_on:
+      - postgres
+      - keycloak
+      - localstack
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./prisma/schema.prisma:/app/prisma/schema.prisma
+      - ./prisma/migrations:/app/prisma/migrations
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: keycloak
@@ -14,7 +48,6 @@ services:
     depends_on:
       - postgres
 
-  # PostgreSQL database
   postgres:
     image: postgres:15
     container_name: postgres
@@ -28,7 +61,6 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # pgAdmin UI
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
@@ -40,18 +72,19 @@ services:
     depends_on:
       - postgres
 
-  # LocalStack (AWS Services Local Emulator)
   localstack:
     image: localstack/localstack:3
     container_name: localstack
     ports:
-      - "4566:4566"              # Main LocalStack endpoint
-      - "4510-4559:4510-4559"    # Internal service ports
+      - "4566:4566"
+      - "4510-4559:4510-4559"
     environment:
-      - SERVICES=s3              # You can add more services if needed (e.g., s3,dynamodb,sqs)
+      - SERVICES=s3
       - DEBUG=1
       - DATA_DIR=/tmp/localstack/data
       - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack_data:/tmp/localstack/data
 
 volumes:
   pgdata:
